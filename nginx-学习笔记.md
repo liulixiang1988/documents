@@ -49,7 +49,7 @@ yum install nginx
 
 ### 2.2 Nginx架构
 
-![1522502296763](D:\notes\img/1522502296763.png)
+![1522502296763](img/1522502296763.png)
 
 查看nginx的进程树：`ps -ef --forest | grep nginx`
 
@@ -160,7 +160,7 @@ http {
 - SSL代理
 - 请求路由
 
-![1522578748029](D:\notes\img/1522578748029.png)
+![1522578748029](img/1522578748029.png)
 
 ### 3.2 配置Nginx为反向代理
 
@@ -211,7 +211,7 @@ log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
 
 ### 3.4 Proxy Host Header
 
-![1522580700106](D:\notes\img/1522580700106.png)
+![1522580700106](img/1522580700106.png)
 
 当反响代理的后端服务绑定多个域名时，为了保证能正确的访问到正确的域名，我们需要把原始访问的域名带给后端，因此需要设置`Host`
 
@@ -228,7 +228,7 @@ server {
 
 ## 4. 负载均衡(Load Balancer)
 
-![1522729713301](D:\notes\img\1522729713301.png)
+![1522729713301](img/1522729713301.png)
 
 ### 4.1 配置基本的Load Balancer
 
@@ -339,7 +339,7 @@ match not_redirect {
 
 ### 4.4 共享内存与健康检查
 
-![1522731049216](D:\notes\img\1522731049216.png)
+![1522731049216](img/1522731049216.png)
 
 默认情况下，每个worker之间是不共享内存的，每个健康检查都会自己保存检查结果。我们向让一个worker对后端的检查结果，其它worker也能使用，可以使用共享内存 `zone backend 64k`。其中backend是我们对共享内存的命名。
 
