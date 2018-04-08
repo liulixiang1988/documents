@@ -459,7 +459,23 @@ Cache-Control: max-age=3600
 Accept-Ranges: bytes
 Connection: keep-alive
 Keep-Alive: timeout=15
+
+λ curl -I http://localhost/index.txt
+HTTP/1.1 200 OK
+Server: nginx/1.13.10
+Date: Sun, 08 Apr 2018 15:05:33 GMT
+Content-Type: text/plain
+Content-Length: 612
+Last-Modified: Tue, 20 Mar 2018 16:00:17 GMT
+ETag: "5ab13011-264"
+Expires: Sun, 08 Apr 2018 15:05:32 GMT
+Cache-Control: no-cache
+Accept-Ranges: bytes
+Connection: keep-alive
+Keep-Alive: timeout=15
 ```
+
+`expires -1`表示不缓存。
 
 这里既声明了`Expires`又声明了`Cache-Control`是为了给不同的浏览器使用。
 
