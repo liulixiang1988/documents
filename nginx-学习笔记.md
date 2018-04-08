@@ -403,7 +403,126 @@ upstream backend {
 ab -n 20 -c 10 loadbalancer_host:port
 ```
 
+## 5. 缓存子系统(Caching Subsystem)
+
+### 5.1 Cache Control Headers
+
+- [Date](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date):描述文件获取的时间
+- [Expires](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Expires):表示文件过期时间
+
+![](img/微信截图_20180408215945.png)
 
 
+[Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control): Cache Control头
+取值有：
+- `no-store`
+- `no-cache`
+- `max-age=0`
+- `s-maxage=0`
+- `must-revalidate`
 
+[Pragma:no-cache](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Pragma): 类似`Cache-Control`，HTTP/1.0标准
 
+在nginx上是通过`expires`来配置的。我们来看如何在nginx.conf上进行配置：
+
+```
+server {
+    listen       80;
+    server_name  localhost;
+    root html;
+    index index.html index.htm;
+
+    location ~ \.(png) {
+        root html;
+        expires 1h;
+    }
+
+    location ~ \.(txt) {
+        root html;
+        expires -1;
+    }
+}    
+```
+
+现在请求一下文件，看看返回的请求头：
+```
+λ curl -I http://localhost/test.png
+HTTP/1.1 200 OK
+Server: nginx/1.13.10
+Date: Sun, 08 Apr 2018 14:15:45 GMT
+Content-Type: image/png
+Content-Length: 155130
+Last-Modified: Sun, 08 Apr 2018 14:00:10 GMT
+ETag: "5aca206a-25dfa"
+Expires: Sun, 08 Apr 2018 15:15:45 GMT
+Cache-Control: max-age=3600
+Accept-Ranges: bytes
+Connection: keep-alive
+Keep-Alive: timeout=15
+```
+
+这里既声明了`Expires`又声明了`Cache-Control`是为了给不同的浏览器使用。
+
+### 5.2 内容协商(Content Negotiation): Q Factor
+
+比如看视频如何选择画质：
+
+![q factor](img/nginx-02.png)
+
+这个涉及到Q Parameter Scale, 1表示最期望的，0表示最差的选择：
+
+![q](img/nginx-03.png)
+
+一些例子：
+```
+Accept-Language: da, en-gb;q=0.8, en;q=0.7
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+```
+如果没有q参数，表示`q=1`
+
+### 5.3 Nginx中的Cache Control Header
+
+Nginx中通过`add_header`设置请求头。
+
+```
+server {
+    listen       80;
+    server_name  localhost;
+    root html;
+    index index.html index.htm;
+
+    location ~ \.(png) {
+        root html;
+        add_headder Cache-Control max-age=120;
+    }
+
+    location ~ \.(txt) {
+        root html;
+        expires -1;
+    }
+}
+```
+
+### 5.4 no-cache与must-re_validate
+
+```
+server {
+    listen       80;
+    server_name  localhost;
+    root html;
+    index index.html index.htm;
+
+    location ~ \.(png) {
+        root html;
+        add_headder Cache-Control no-cache;
+    }
+
+    location ~ \.(html) {
+        root html;
+        add_headder Cache-Control must-revalidate;
+        add_headder Cache-Control private max-age=200;
+        add_headder Cache-Control public s-maxage=500;
+        add_headder Cache-Control no-cache must-revalidate;
+    }
+}
+```
