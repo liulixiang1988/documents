@@ -600,7 +600,7 @@ location /admin {
 }
 ```
 
-### 4.2 限制连接模块
+### 7.2 限制连接模块
 
 `limit_conn` module
 
@@ -629,7 +629,7 @@ server {
 }
 ```
 
-### 4.3 Basic认证
+### 7.3 Basic认证
 
 ![1523627826524](img/1523627826524.png)
 
@@ -657,7 +657,7 @@ server {
 htpasswd -C /etc/nginx/.htpasswd admin
 ```
 
-### 4.4 Hashing、摘要认证
+### 7.4 Hashing、摘要认证
 
 可以使用`md5sum`或者`sha256sum`等工具算hash。可以在`/etc/shadow`里看用户的hash
 
@@ -674,7 +674,7 @@ htpasswd -C /etc/nginx/.htpasswd admin
 
 此处可以使用apache来做摘要认证。
 
-### 4.5 GeoIP Module
+### 7.5 GeoIP Module
 
 Nginx Module: `ngx_http_geoip_module`
 
@@ -700,3 +700,207 @@ http {
 ```
 
 GEO IP数据可以到http://www.nirsoft.net/countryip 查看
+
+## 8 日志系统
+
+### 8.1 访问日志 Access Log
+
+`var/log/nginx`下的access.log
+
+```
+http {
+    log_format main '$remote_addr - $remot_user [$time_local] "request" '
+    				'$status $body_bytes_sent "$http_referer" '
+    				'"$http_user_agent" "$http_x_forwarded_for"';
+    access_log /var/log/nginx/access.log main;
+}
+```
+
+### 8.2 自定义访问日志
+
+```
+http {
+    log_format main '$remote_addr - $remot_user [$time_local] "request" '
+    				'$status $body_bytes_sent "$http_referer" '
+    				'"$http_user_agent" "$http_x_forwarded_for"';
+    log_format master "$remote_addr" - "$status";
+    access_log /var/log/nginx/access.log master;
+    
+    server {
+        access_log /var/log/nginx/example.log main;
+    }
+}
+```
+
+### 8.3 错误日志Error Log
+
+日志级别：emerg, alert, crit, error, warn, notice, info, debug
+
+error log不允许我们自定义log format。
+
+当访问不存在的地址时会触发error log
+
+```
+error_log /var/log/nginx/error.log;
+
+http {
+    ...
+}
+```
+
+## 9 HTTP压缩(HTTP Compression)
+
+### 9.1 Accept Content Encoding
+
+`Accept Encoding: gzip, deflate`
+
+### 9.2 为Nginx配置gzip
+
+```
+http {
+    gzip on;
+    gzip_type text/plain text/css text/javascript text/xml;
+    gzip_disable "MSIE [1-6]\."; #IE1-6不开启gzip
+    gzip_comp_level 9; #压缩比率，1是最快，但压缩率低，9压缩慢，但压缩率高
+}
+```
+
+## 10 Yet to Decide
+
+### 10.1 HTTP Refer Header & Image Hot-Linking
+
+```
+location ~ \.(jpe?g|png|gif)$ {
+    valid_referers none blocked serverb.com.com *.serverb.com;
+    if ($invalid_referer) {
+        return 403;
+    }
+}
+```
+
+### 10.2 Accept Language和Content Language
+
+`Accept-Language: da, en-gb;q=0.8, en;q=0.7`
+
+`Content-Language: en`
+
+## 11 Web应用防火墙
+
+### 11.1 理解Nginx模块架构
+
+http://nginx.org/en/docs/
+
+https://www.nginx.com/resources/wiki/modules/
+
+`nginx -V`会显示nginx的信息，包含模块
+
+### 11.2 从源码编译Nginx
+
+- 下载源码http://nginx.org/download/
+- `tar -xzvf nginx.tar.gz`
+- 安装gcc `yum -y install gcc gcc-c++ make zlib-devel pcre-devel openssl-devel`
+- `./configure --help`可以查看我们如何编译，以及想要编译的条件。
+  - `--prefix=path`
+  - `--sbin-path=path`
+  - `--conf-path=path`
+  - `--error-log-path=path`
+  - `--pid-path=path`
+  - `--lock-path=path`
+  - `--user=user`
+  - `--group=group`
+- `./configure --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx/ --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --pid-path=/var/run/nginx.pid --user=nginx --group=nginx --with-http_gzip_static_module` #开启了gzip module
+- `make`
+- `make install`
+
+现在已经安装好了。
+
+要让nginx自动启动，需要init.d脚本：https://www.nginx.com/resources/wiki/start/topics/examples/initscripts/
+
+拷贝脚本为`/etc/init.d/nginx`
+
+### 11.3 Web Application Firewall
+
+![1523721343913](img/1523721343913.png)
+
+![1523721399454](img/1523721399454.png)
+
+### 11.4 给Nginx安装与配置WAF
+
+- 下载并解压nginx源码
+- 下载并解压naxsi https://github.com/nbs-system/naxsi
+- `yum -y install gcc make GeoIP GeoIP-devel pcre-devel openssl openssl-devel`
+- `./configure --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --conf-path=/etc/nginx/nginx.conf --add-module=../naxsi-master/naxsi_src --error-log=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.log --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --with-http_ssl_module --with-http_realip_module --with-http_addition_module --with-http_sub_module`
+- `make` & `make install`
+
+上面就安装好了带naxsi的nginx。
+
+然后`cp naxsi_core.rules /etc/nginx`并且修改nginx.conf
+
+```
+http {
+    include /etc/nginx/naxsi_core.rules;
+    server {
+        location / {
+            include /etc/nginx/naxsi.rules;
+        }
+    }
+}
+```
+
+## 12 加密模块(Cryptography Module)
+
+### 12.1 SSL with Nginx
+
+在`conf.d`文件夹下又`ssl.conf`文件
+
+创建证书：`openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes` key.pem是私钥
+
+修改nginx.conf
+
+```
+server {
+	listen 443 ssl;
+    ssl on;
+    ssl_certificate cert.pem;
+    ssl_certificate_key key.pem;
+    
+    ssl_session_timeout 5m;
+    
+    ssl_protocol SSLv2 SSLv3 TLSv1;
+    ssl_ciphers ALL:!ADH:!EPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+    ssl_prefer_server_ciphers on;
+    
+    location / {
+        root /var/www/html;
+        index index.html;
+    }
+}
+```
+
+自签名的证书不受信任，可以到geotrust.com 把公钥上传上去，他们会给一个zip包，里面包含证书和bundle。
+
+运行`cat liulx_com.crt liulx_com.ca-bundle > liulx.crt`，生成新的公钥
+
+### 12.2 SSL Termination  at Reverse Proxy
+
+```
+server {
+	listen 443 ssl;
+    ssl on;
+    ssl_certificate cert.pem;
+    ssl_certificate_key key.pem;
+    
+    ssl_session_timeout 5m;
+    
+    ssl_protocol SSLv2 SSLv3 TLSv1;
+    ssl_ciphers ALL:!ADH:!EPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+    ssl_prefer_server_ciphers on;
+    
+    location / {
+        proxy_pass http://xxx:80;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+    }
+}
+```
+
