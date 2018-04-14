@@ -542,3 +542,161 @@ server {
     }
 }
 ```
+
+### ###5.5  Keep Alive连接
+
+![1523621693941](img/1523621693941.png)
+
+![1523621943371](img/1523621943371.png)
+
+```
+http {
+    keepalive_timeout 10;
+}
+```
+
+## 6 静态文件
+
+```
+server {
+	server_name liulx.com
+    location / {
+        proxy_pass http://xxx;
+        proxy_set_header Host $host;
+    }
+    
+    location ~* \.(css|js|jpeg|jpg|png) {
+        root /var/www/assets;
+        try_files $uri $uri/;
+    }
+}
+```
+
+## 7 访问控制
+
+### 7.1 白名单
+
+```
+#仅允许一个IP访问，也可以又多个allow
+location /admin {
+    allow 172.18.10.5;
+    deny all;
+}
+```
+
+也可以创建一个whitelist文件:
+
+```
+allow xxx.xxx.xxx;
+allow bbb.xxx.bbb;
+```
+
+然后在nginx.conf中：
+
+```
+location /admin {
+    include /etc/nginx/conf.d/whitelist;
+    deny all;
+}
+```
+
+### 4.2 限制连接模块
+
+`limit_conn` module
+
+```
+server {
+    listen 80;
+    location /downloads {
+        root /var/www/websites/example;
+        limit_rate 50k; #限流为50k/s
+    }
+}
+```
+
+上面是对所有连接都进行了限流。我们也可以针对不同的连接进行限流。
+
+```
+limit_conn_zone $binary_remote_addr zone=addr:10m; #定义限流域。$binary_remote_addr表示远程下载地址
+server {
+    listen 80;
+    location /downloads {
+        root /var/www/websites/example;
+        limit_rate_after 50m; #前50m不限流，超过50m后使用下面的限流规则
+        limit_rate 50k; #限流为50k/s
+        limit_conn addr 1; #仅允许1个下载
+    }
+}
+```
+
+### 4.3 Basic认证
+
+![1523627826524](img/1523627826524.png)
+
+```
+server {
+    server_name example.com;
+    
+    location / {
+        root /var/www/websites/example;
+        index index.html index.htm;
+    }
+    
+    location /admin {
+        root /var/www/websites/example;
+        index index.html;
+        auth_basic " Basic Authentication ";
+        auth_basic_user_file "/etc/nginx/.htpasswd"; #存储用户名和密码的地方
+    }
+}
+```
+
+可以使用httpd-tools工具（需要单独安装）来帮助我们生成密码：
+
+```
+htpasswd -C /etc/nginx/.htpasswd admin
+```
+
+### 4.4 Hashing、摘要认证
+
+可以使用`md5sum`或者`sha256sum`等工具算hash。可以在`/etc/shadow`里看用户的hash
+
+![1523627765401](img/1523627765401.png)
+
+比摘要认证多了`nonce`和`qop`两个参数。
+
+摘要认证步骤：
+
+- `H1(USER+PASS+REALM) = MD5`
+- `H2(URI+REQ METHOD) = MD5`
+- `MD5(H1)+MD5(H2)+nounce=MD5`
+- 把最后的MD5发送通过`Response`发送给服务端
+
+此处可以使用apache来做摘要认证。
+
+### 4.5 GeoIP Module
+
+Nginx Module: `ngx_http_geoip_module`
+
+可用的变量：
+
+- `geoip_country`
+- `geoip_city`
+- `geoip_longtitude`
+- `geoip_org`
+
+```
+http {
+    geoip_country /usr/share/GeoIP/GeoIP.dat; #GEO IP数据
+    map "$host:$geoip_country_code" $deny_by_country {
+        ~^example.com:(?!IN) 1;
+        default 0;
+    }
+    
+    server {
+        if ($deny_by_country) {return 403;}
+    }
+}
+```
+
+GEO IP数据可以到http://www.nirsoft.net/countryip 查看
